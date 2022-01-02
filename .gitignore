@@ -1,0 +1,13 @@
+venv
+pycache
+vscode
+
+cache
+Data
+
+
+*venv
+*pycache
+*vscode
+*cache
+*Data
