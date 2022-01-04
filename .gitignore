@@ -4,10 +4,13 @@ vscode
 
 cache
 Data
-
+model
+output
 
 *venv
 *pycache
 *vscode
 *cache
 *Data
+
+__pycache__
