@@ -26,12 +26,15 @@ class Skeletone:
     points: list
 
 
-    def __init__(self, image) -> None:
+    def __init__(self, image, name) -> None:
         self.image = image
+
         self.image_height = image.shape[0]
         self.image_width  = image.shape[1]
+
         self.points = []
         self.border_points_list = []
+        self.name = name
 
 
     def keypoints(self):
@@ -84,30 +87,88 @@ class Skeletone:
     
 
     def border_points(self, points) -> tuple:
+        gray_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
+
+        def middleY_finder(p1, p2):
+            middle3X = int(np.floor((p1 + p2) / 2))
+            middle2X = int(np.floor((p1 + middle3X)  / 2))
+            middle4X = int(np.floor((middle3X  + p2) / 2))
+            middle5X = int(np.floor((middle4X  + p2) / 2))
+            middle1X = int(np.floor((p1 + middle2X)  / 2))
+            middleY  = point5[1]
+
+            black_alert = False
+
+            while black_alert == False:
+                if gray_image[middleY, middle1X] == 0:
+                    black_alert = True
+                    break
+
+                if gray_image[middleY, middle2X] == 0:
+                    black_alert = True
+                    break
+                
+                if gray_image[middleY, middle3X] == 0:
+                    black_alert = True
+                    break
+                
+                if gray_image[middleY, middle4X] == 0:
+                    black_alert = True
+                    break
+
+                if gray_image[middleY, middle5X] == 0:
+                    black_alert = True
+                    break
+                
+                middleY += 1
+
+            return middleY
+        
+        def move_thumb_right(thumbP):
+            currentX = thumbP[0]
+
+            if point17[0] > thumbP[0]:
+                while gray_image[thumbP[1], currentX] != 0 and currentX > 0:
+                    currentX -= 1
+            else:
+                while gray_image[thumbP[1], currentX] != 0 and currentX < self.image_width - 1:
+                    currentX += 1
+            
+            return currentX
+
+
         point2  = points[2]
         thumb   = points[4]
         point5  = points[5]
         point9  = points[9]
         point12 = points[12]
-        point17 = points[17]
+        point13 = points[13]
+        point17 = point13
 
-        gray_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2GRAY)
+        if points[17] is not None:
+            point17 = points[17]
+
         border_point_dict = dict()
 
         # middle finger top point
         currentY = point12[1]
-        while gray_image[currentY, point12[0]] != 0:
+        while gray_image[currentY, point12[0]] != 0 and currentY < self.image_height - 1:
             currentY += 1
         
+        #0
         new_top = [point12[0], currentY]
         border_point_dict["top"] = new_top
         self.border_points_list.append(new_top)
 
         # --------------------------------------------
+        #1
         border_point_dict["wrist"] = points[0]
         self.border_points_list.append(points[0])
-        border_point_dict["thumb"] = thumb
-        self.border_points_list.append(thumb)
+        #2
+        new_thumb = [move_thumb_right(thumb), thumb[1]]
+        border_point_dict["thumb"] = new_thumb
+        self.border_points_list.append(new_thumb)
+        #3
         border_point_dict["little"] = points[20]
         self.border_points_list.append(points[20])
 
@@ -121,11 +182,11 @@ class Skeletone:
         else:
             while gray_image[point17[1], currentX] != 0:
                 currentX -= 1
-        
+        #4
         side1 = [currentX, point17[1]]
         border_point_dict["side1"] = side1
         self.border_points_list.append(side1)
-# ----------------------------------------------------------------------------
+        # ------------------------------------------------
         # hand inner border points (inner)
         # find the side point, which is between thumb finger and index finger
         currentX = point5[0]
@@ -135,7 +196,7 @@ class Skeletone:
         else:
             while gray_image[point5[1], currentX] != 0:
                 currentX += 1        
-
+        #5
         side2 = [currentX, point5[1]]
         border_point_dict["side2"] = side2
         self.border_points_list.append(side2)
@@ -143,41 +204,10 @@ class Skeletone:
      # ----------------------------------------------------------   
         # find the end point of the middle finger
 
-        middle3X = int(np.floor((point5[0] + point9[0]) / 2))
-        middle2X = int(np.floor((point5[0] + middle3X)  / 2))
-        middle4X = int(np.floor((middle3X  + point9[0]) / 2))
-        middle5X = int(np.floor((middle4X  + point9[0]) / 2))
-        middle1X = int(np.floor((point5[0] + middle2X)  / 2))
-        middleY  = point5[1]
-
-        black_alert = False
+        y1 = middleY_finder(point5[0], point9[0])
+        y2 = middleY_finder(point9[0], point13[0])
         
-        print("initial y: ", middleY)
-
-        while black_alert == False:
-            if gray_image[middleY, middle1X] == 0:
-                black_alert = True
-                break
-
-            if gray_image[middleY, middle2X] == 0:
-                black_alert = True
-                break
-            
-            if gray_image[middleY, middle3X] == 0:
-                black_alert = True
-                break
-            
-            if gray_image[middleY, middle4X] == 0:
-                black_alert = True
-                break
-
-            if gray_image[middleY, middle5X] == 0:
-                black_alert = True
-                break
-            
-            middleY += 1
-        
-        end_middle = [points[12][0], middleY]
+        end_middle = [points[12][0], min(y1, y2)]
         border_point_dict['end_middle'] = end_middle
         self.border_points_list.append(end_middle)
 # -----------------------------------------------------------
@@ -224,17 +254,19 @@ class Skeletone:
 
         if len(self.border_points_list) > 0:
             for i in range(len(self.border_points_list)):
-                cv2.circle(imgCopy, (int(self.border_points_list[i][0]), int(self.border_points_list[i][1])), 8, (0, 255, 255), thickness=-1, lineType=cv2.FILLED)
-                cv2.putText(imgCopy, "{}".format(i), (int(self.border_points_list[i][0]), int(self.border_points_list[i][1])), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, lineType=cv2.LINE_AA)
-        else:
-            self.border_points()
-
-            if len(self.border_points) > 0:
-                for i in range(len(self.border_points_list)):
+                if self.border_points_list[i] != None:
                     cv2.circle(imgCopy, (int(self.border_points_list[i][0]), int(self.border_points_list[i][1])), 8, (0, 255, 255), thickness=-1, lineType=cv2.FILLED)
                     cv2.putText(imgCopy, "{}".format(i), (int(self.border_points_list[i][0]), int(self.border_points_list[i][1])), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, lineType=cv2.LINE_AA)
+            return imgCopy            
+        else:
+            return None
+            # self.border_points()
 
-        return imgCopy
+            # if len(self.border_points) > 0:
+            #     for i in range(len(self.border_points_list)):
+            #         cv2.circle(imgCopy, (int(self.border_points_list[i][0]), int(self.border_points_list[i][1])), 8, (0, 255, 255), thickness=-1, lineType=cv2.FILLED)
+            #         cv2.putText(imgCopy, "{}".format(i), (int(self.border_points_list[i][0]), int(self.border_points_list[i][1])), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, lineType=cv2.LINE_AA)
+
 
     
     def draw_points(self, pList):
@@ -242,10 +274,12 @@ class Skeletone:
 
         if len(pList) > 0:
             for i in range(len(pList)):
-                cv2.circle(imgCopy, (int(pList[i][0]), int(pList[i][1])), 3, (0, 255, 255), thickness=-1, lineType=cv2.FILLED)
-                cv2.putText(imgCopy, "{}".format(i), (int(pList[i][0]), int(pList[i][1])), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, lineType=cv2.LINE_AA)
-        cv2.imshow("points", imgCopy)
-        cv2.waitKey(0)
+                if pList[i] is not None:
+                    cv2.circle(imgCopy, (int(pList[i][0]), int(pList[i][1])), 3, (0, 255, 255), thickness=-1, lineType=cv2.FILLED)
+                    cv2.putText(imgCopy, "{}".format(i), (int(pList[i][0]), int(pList[i][1])), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, lineType=cv2.LINE_AA)
+        # cv2.imshow("points", imgCopy)
+        # cv2.waitKey(0)
+        return imgCopy
 
     
     def get_hand_start(self):
@@ -290,3 +324,5 @@ class Skeletone:
                         break
                     
         return top, bottom
+    
+    

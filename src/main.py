@@ -1,21 +1,57 @@
+import argparse
+import os
 
-import trimesh
-import pandas as pd
-import numpy as np
 import cv2
-from os import walk
+import numpy as np
+import pandas as pd
+import trimesh
 from matplotlib import pyplot as plt
 from matplotlib.pyplot import figure
 
+from projection import project
+from resortation import plyFix
 from silhouette import silhouetter
 from skeletone import Skeletone
-from utils import euclidean_distance, restoration
+from utils import directory_handler, euclidean_distance, blockPrint, enablePrint
 
+# Define the arguments being used to run the code
+ap = argparse.ArgumentParser()
+ap.add_argument("-p", "--ply", 
+	help="This is used for .ply files as input files.",
+    action="store_true",
+    default=False
+    )
 
-data_dir = "./Data"
-fixed_data_dir = "./Data/fixed"
-output_dir = "./output"
-df = pd.DataFrame(columns = [
+ap.add_argument("-r", "--rotate", 
+	help="rotate images -90 degree",
+    action="store_true",
+    default=False
+    )
+
+ap.add_argument("-s", "--scale", type=float, required=True,
+	help="Scale of the measurements")
+
+ap.add_argument("-i", "--input", type=str, required=True,
+	help="path to the directory of input images or ply files")
+
+ap.add_argument("-o", "--output", type=str, required=True,
+	help="path to the output directory")
+
+args = vars(ap.parse_args())
+
+# Define directories engaged in the process
+input_dir = args['input']
+output_dir = args['output']
+cache_dir = "./cache"
+cache_fix = "./cache/fix"
+cache_image = "./cache/images"
+
+# Checks the directory tree and creates necessary ones if there is a lack of them
+directory_handler(args, input_path=input_dir, output_path=output_dir, cache_path=cache_dir)
+
+# define the columns of the pandas Dataframe
+df = pd.DataFrame(columns = [ 
+                        "index",
                         "volume",
                         "hand_length",
                         "palm_length",
@@ -33,90 +69,102 @@ df = pd.DataFrame(columns = [
                         "hand_span"
                     ])
 
+img_dir = input_dir
 
-# run code for all the images
+if args['ply']:
+    img_dir = cache_image
 
-# for file in filenames:
-#     mesh_path = f'{data_dir}/{file}'
-#     restoration(mesh_path, filename=file, dir=fixed_data_dir)
+    plyFiles = next(os.walk(input_dir), (None, None, []))[2]
 
-filenames = next(walk(fixed_data_dir), (None, None, []))[2]  # [] if no file
-print("file names:  ", filenames)
+    # walks through the given PLY files and generates fixed PLY ones in the ./cache/fix directory
+    print("Generating fixed ply files ...")
+    # blockPrint()
+    for pFile in plyFiles:
+        mesh_path = f'{input_dir}/{pFile}'
+        plyFix(mesh_path, filename=pFile, dir=cache_fix)
+
+    # enablePrint()
+
+    # convert(project) the ply files into 2D images
+    fixed_filenames = next(os.walk(cache_fix), (None, None, []))[2]  # [] if no file
+
+    # walk through the fixed PLY files and generates the 2D image files in ./cache/image directory
+    for fixed_file in fixed_filenames:
+        project(img_path=f"{cache_fix}/{fixed_file}", output_path=cache_image)
+
+# walk through the hand image files and find their points
+filenames = next(os.walk(img_dir), (None, None, []))[2]  # [] if no file
 
 for file in filenames:
+    print("file: ", file)
     pDic = dict()
 
-    mesh = trimesh.load_mesh(f'{fixed_data_dir}/{file}')
-    mesh.is_watertight
+    img = cv2.imread(f"{img_dir}/{file}")
 
-    plane = trimesh.points.project_to_plane(mesh.vertices, plane_normal=[0,0,1],plane_origin=[0,0,0])
-
-
-    figure(figsize=(8, 12), dpi=100)
-
-    data = np.array(plane)
-    x, y = data.T
-    plt.scatter(x,y)
-    plt.axis('off')
-    plt.savefig(f"cache/{file.strip('.ply')}.png", bbox_inches='tight')
-
-    # mesh.bounding_box_oriented.show()
-
-    img = cv2.imread(f"cache/{file.strip('.ply')}.png")
+    if not args["ply"]:
+        if args['rotate']:
+            sil_img = cv2.rotate(sil_img, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
     sil_img = silhouetter(img)
 
-    sk = Skeletone(image=sil_img)
+    sk = Skeletone(image=sil_img, name=file.split(".")[0])
+    bug = False
 
-    try:
-        points = sk.keypoints()
-        b_dic, b_list = sk.border_points(points=points)
+    points = sk.keypoints()
 
-        b_img = sk.draw_border_points()
-        cv2.imwrite(f"{output_dir}/{file.strip('.ply')}.jpg", b_img)
+    b_dic = b_list = None
 
-        top, bottom = sk.get_top_bottom()
+    if points != None:
+        if  points[0]  != None and \
+            points[2]  != None and \
+            points[4]  != None and \
+            points[5]  != None and \
+            points[9]  != None and \
+            points[12] != None and \
+            points[13] != None :
 
-        print("top : ", top)
-        print("bottom: ", bottom)
+            b_dic, b_list = sk.border_points(points=points)
 
-        pDic["volume"] = None
-        pDic["hand_length"]   = euclidean_distance(b_list[0], b_list[1])
-        pDic["palm_length"]   = euclidean_distance(b_list[1], b_list[6])
-        pDic["finger_length"] = euclidean_distance(b_list[0], b_list[6])
-        pDic["hand_width"]    = euclidean_distance(b_list[4], b_list[5])
-        pDic["index1"] = pDic["hand_width"] * (100 / pDic["hand_length"])
-        pDic["index2"] = None
-        pDic["max_breadth"] = euclidean_distance(b_list[7], b_list[8])
-        pDic["max_circumference"] = None
-        pDic["max_diameter"] = None
-        pDic["wrist_ratio"] = None
-        pDic["hLength_bHeight",] = None
-        pDic["hVolume_BMI"] = None
-        pDic["hand_span"] = euclidean_distance(b_list[2], b_list[3])
+        elif points[20]:
+            bug = True
+    else:
+        bug = True
     
-    except:
-        pDic["volume"] = None
+    if not bug:
+        b_img = sk.draw_border_points()
+        
+        if b_img is not None:
+            cv2.imwrite(f"{output_dir}/{file.strip('.ply').strip('.jpg').strip('.png')}.jpg", b_img)
+
+        if b_list != None:
+            pDic["hand_length"]   = euclidean_distance(b_list[0], b_list[1], args["scale"])
+            pDic["palm_length"]   = euclidean_distance(b_list[1], b_list[6], args["scale"])
+            pDic["finger_length"] = euclidean_distance(b_list[0], b_list[6], args["scale"])
+            pDic["hand_width"]    = euclidean_distance(b_list[4], b_list[5], args["scale"])
+            pDic["index1"] = pDic["hand_width"] * (100 / pDic["hand_length"])
+            pDic["max_breadth"] = euclidean_distance(b_list[7], b_list[8], args["scale"])
+            pDic["hand_span"] = euclidean_distance(b_list[2], b_list[3], args["scale"])
+        
+    pDic['index'] = file.split("-")[0].strip(".png").strip(".jpg").strip(".ply")
+    pDic["volume"] = None
+    pDic["index2"] = None
+    pDic["max_circumference"] = None
+    pDic["max_diameter"] = None
+    pDic["wrist_ratio"] = None
+    pDic["hLength_bHeight"] = None
+    pDic["hVolume_BMI"] = None
+
+    if bug or b_list == None:
         pDic["hand_length"]   = None
         pDic["palm_length"]   = None
         pDic["finger_length"] = None
         pDic["hand_width"]    = None
         pDic["index1"] = None
-        pDic["index2"] = None
-        
         pDic["max_breadth"] = None
-        pDic["max_circumference"] = None
-        pDic["max_diameter"] = None
-        pDic["wrist_ratio"] = None
-        pDic["hLength_bHeight",] = None
-        pDic["hVolume_BMI"] = None
-        pDic["hand_span"] = None
-
 
     df = df.append(pDic, ignore_index=True)
+    
+    del sk  # delete the skeletone object
 
-
-
-print("dataframe: ", df)
-
+# convert the values stored in pDic dictionary to a CSV output file.
 df.to_csv(f"{output_dir}/results.csv")
