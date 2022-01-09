@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 
 import cv2
@@ -12,7 +13,8 @@ from projection import project
 from resortation import plyFix
 from silhouette import silhouetter
 from skeletone import Skeletone
-from utils import directory_handler, euclidean_distance, blockPrint, enablePrint
+from utils import (blockPrint, directory_handler, enablePrint,
+                   euclidean_distance)
 
 # Define the arguments being used to run the code
 ap = argparse.ArgumentParser()
@@ -20,19 +22,25 @@ ap.add_argument("-p", "--ply",
 	help="This is used for .ply files as input files.",
     action="store_true",
     default=False
-    )
+)
 
 ap.add_argument("-r", "--rotate", 
 	help="rotate images -90 degree",
     action="store_true",
     default=False
-    )
+)
+
+ap.add_argument("-f", "--fix", 
+	help="fix the ply input images",
+    action="store_true",
+    default=False
+)
 
 ap.add_argument("-s", "--scale", type=float, required=True,
 	help="Scale of the measurements")
 
 ap.add_argument("-i", "--input", type=str, required=True,
-	help="path to the directory of input images or ply files")
+	help="path to the directory of the input images or ply files")
 
 ap.add_argument("-o", "--output", type=str, required=True,
 	help="path to the output directory")
@@ -74,26 +82,33 @@ img_dir = input_dir
 if args['ply']:
     img_dir = cache_image
 
-    plyFiles = next(os.walk(input_dir), (None, None, []))[2]
+    if args['fix']:
+        plyFiles = next(os.walk(input_dir), (None, None, []))[2]
 
-    # walks through the given PLY files and generates fixed PLY ones in the ./cache/fix directory
-    print("Generating fixed ply files ...")
-    # blockPrint()
-    for pFile in plyFiles:
-        mesh_path = f'{input_dir}/{pFile}'
-        plyFix(mesh_path, filename=pFile, dir=cache_fix)
+        # walks through the given PLY files and generates fixed PLY ones in the ./cache/fix directory
+        print("Generating fixed ply files ...")
+        # blockPrint()
+        for pFile in plyFiles:
+            mesh_path = f'{input_dir}/{pFile}'
+            plyFix(mesh_path, filename=pFile, dir=cache_fix)
+        
+        # enablePrint()
 
-    # enablePrint()
-
-    # convert(project) the ply files into 2D images
-    fixed_filenames = next(os.walk(cache_fix), (None, None, []))[2]  # [] if no file
-
-    # walk through the fixed PLY files and generates the 2D image files in ./cache/image directory
-    for fixed_file in fixed_filenames:
-        project(img_path=f"{cache_fix}/{fixed_file}", output_path=cache_image)
+        # Convert(project) the ply files into 2D images
+        fixed_filenames = next(os.walk(cache_fix), (None, None, []))[2]
+        # walk through the fixed PLY files and generates the 2D image files in ./cache/image directory
+        for fixed_file in fixed_filenames:
+            project(img_path=f"{cache_fix}/{fixed_file}", output_path=cache_image)
+    else:
+        # Convert(project) the ply files into 2D images
+        fixed_filenames = next(os.walk(input_dir), (None, None, []))[2]
+        # walk through the fixed PLY files and generates the 2D image files in ./cache/image directory
+        for fixed_file in fixed_filenames:
+            project(img_path=f"{input_dir}/{fixed_file}", output_path=cache_image)
 
 # walk through the hand image files and find their points
 filenames = next(os.walk(img_dir), (None, None, []))[2]  # [] if no file
+points_dict = dict()
 
 for file in filenames:
     print("file: ", file)
@@ -129,12 +144,19 @@ for file in filenames:
             bug = True
     else:
         bug = True
+
+    # add border points of the image to the point_dict. This dictionary will be converted to JSON file later.
+    if b_list == None:
+        points_dict[file.split('.')[0].split('-')[0]] = []
+    else:
+        points_dict[file.split('.')[0].split('-')[0]] = b_list
     
+
     if not bug:
         b_img = sk.draw_border_points()
         
         if b_img is not None:
-            cv2.imwrite(f"{output_dir}/{file.strip('.ply').strip('.jpg').strip('.png')}.jpg", b_img)
+            cv2.imwrite(f"{output_dir}/{file.strip('.ply').strip('.jpg').strip('.png').strip('.PLY')}.jpg", b_img)
 
         if b_list != None:
             pDic["hand_length"]   = euclidean_distance(b_list[0], b_list[1], args["scale"])
@@ -168,3 +190,6 @@ for file in filenames:
 
 # convert the values stored in pDic dictionary to a CSV output file.
 df.to_csv(f"{output_dir}/results.csv")
+
+with open(f"{output_dir}/results.json", "w") as outfile:
+    json.dump(points_dict, outfile, indent=4)
