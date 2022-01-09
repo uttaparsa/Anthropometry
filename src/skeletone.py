@@ -323,6 +323,6 @@ class Skeletone:
                         bottom_found = True
                         break
                     
-        return top, bottom
+        return {'top':top, 'bottom':bottom}
     
     

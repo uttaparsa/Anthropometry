@@ -147,9 +147,9 @@ for file in filenames:
 
     # add border points of the image to the point_dict. This dictionary will be converted to JSON file later.
     if b_list == None:
-        points_dict[file.split('.')[0].split('-')[0]] = []
+        points_dict[file.split('.')[0].split('-')[0]] = {}
     else:
-        points_dict[file.split('.')[0].split('-')[0]] = b_list
+        points_dict[file.split('.')[0].split('-')[0]] = {**b_dic, **(sk.get_top_bottom()) , **{'shape': img.shape,'filename':file}}
     
 
     if not bug:
