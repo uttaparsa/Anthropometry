@@ -19,7 +19,23 @@ class MeshFeatures():
         return p.length
 
     def get_max_circumference_path(self):
-        lines = trimesh.intersections.mesh_plane(self.mesh,plane_normal=[0,-1,0],plane_origin=[self.keypoints['side1'][0],self.keypoints['side1'][1],0])
+        p0 = self.keypoints['side1'] + [0]
+        p1 = self.keypoints['side2'] + [2]
+        p2 = (p0 - p1)/ 2
+        x0, y0, z0 = p0
+        x1, y1, z1 = p1
+        x2, y2, z2 = p2
+
+        ux, uy, uz = u = [x1-x0, y1-y0, z1-z0]
+        vx, vy, vz = v = [x2-x0, y2-y0, z2-z0]
+
+        u_cross_v = [uy*vz-uz*vy, uz*vx-ux*vz, ux*vy-uy*vx]
+
+        point  = np.array(p0)
+        normal = np.array(u_cross_v)
+        normal[2] = 0
+
+        lines = trimesh.intersections.mesh_plane(self.mesh,plane_normal=normal,plane_origin=point)
         p = trimesh.load_path(lines)
         return p
 
@@ -109,6 +125,7 @@ if __name__ == '__main__':
             if len(mesh_data.keys()) > 0:
                 features = MeshFeatures(mesh_path, mesh_data,scale = 4)
                 # features.show_keypoints()
+                # features.show_circumference_path()
                 features_dict = features.get_all_features_dict()
                 print(f"features : {features_dict}")
                 output_df.iloc[mesh_name-1,output_df.columns.get_loc('volume')] = features_dict['volume']
