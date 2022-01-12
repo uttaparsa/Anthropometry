@@ -13,10 +13,10 @@ class MeshFeatures():
         self.keypoints, self.translation_offset, self.scale = find_transformation.get_transformed_keypoints_from_2d_on_mesh(self.mesh, image_2d_info,scale=scale)
 
 
-    def get_wrist_circumference(self):
+    def get_wrist_circumference_path(self):
         lines = trimesh.intersections.mesh_plane(self.mesh,plane_normal=[0,-1,0],plane_origin=[self.keypoints['wrist'][0],self.keypoints['wrist'][1],0])
         p = trimesh.load_path(lines)
-        return p.length
+        return p
 
     def get_max_circumference_path(self):
         p0 = self.keypoints['side1'] + [0]
@@ -58,6 +58,15 @@ class MeshFeatures():
         p.show()
 
 
+    def show_wrist_circumference_path(self):
+        p = pv.Plotter()
+        path = self.get_wrist_circumference_path()
+        p.add_mesh(path.vertices, color=True)
+        p.add_mesh(self.mesh, color=True)
+        p.show_bounds(grid='front', location='outer', 
+                                    all_edges=True)
+        p.title = self.image_2d_info['filename']
+        p.show()
 
     def show_circumference_path(self):
         p = pv.Plotter()
@@ -66,6 +75,7 @@ class MeshFeatures():
         p.add_mesh(self.mesh, color=True)
         p.show_bounds(grid='front', location='outer', 
                                     all_edges=True)
+        p.title = self.image_2d_info['filename']
         p.show()
 
     
@@ -98,7 +108,7 @@ class MeshFeatures():
         
         features['filename'] = self.image_2d_info['filename']
         features['volume'] = self.get_sliced_volume()
-        features['wrist_circumference'] = self.get_wrist_circumference()
+        features['wrist_circumference'] = self.get_wrist_circumference_path().length
         features['max_circumference'] = self.get_max_circumference()
         features['scale'] = self.scale
         features['max_diameter'] = self.get_wrist_depth()
@@ -125,6 +135,7 @@ if __name__ == '__main__':
             if len(mesh_data.keys()) > 0:
                 features = MeshFeatures(mesh_path, mesh_data,scale = 4)
                 # features.show_keypoints()
+                # features.show_wrist_circumference_path()
                 # features.show_circumference_path()
                 features_dict = features.get_all_features_dict()
                 print(f"features : {features_dict}")
