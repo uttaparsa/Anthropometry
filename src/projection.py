@@ -16,21 +16,16 @@ def project(img_path, output_path):
     x, y = data.T
     diffy = math.ceil(np.amax(y)) - math.floor(np.amin(y))
     diffx =  math.ceil(np.amax(x)) - math.floor(np.amin(x))
+
     margin_percentage = 20
     margin_x = margin_percentage / 100 * diffx
     margin_y = margin_percentage / 100 * diffy
 
 
-    print(f"x : {x}")
-    print(f"y : {y}")
-    print(f"diffy : {diffy}")
-    print(f"diffx : {diffx}")
-
-
-
     px = 1/plt.rcParams['figure.dpi']  # pixel in inches
 
     pixel_per_mm = 4
+    
     plt.subplots(figsize=((diffx+margin_x)*px*pixel_per_mm, (diffy+margin_y)*px*pixel_per_mm))
 
 
