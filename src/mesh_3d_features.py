@@ -18,10 +18,14 @@ class MeshFeatures():
         p = trimesh.load_path(lines)
         return p
 
-    def get_max_circumference_path(self):
+
+    def get_plane_from_crossing_side_common_points(self):
         p0 = self.keypoints['side1'] + [0]
         p1 = self.keypoints['side2'] + [2]
-        p2 = (p0 - p1)/ 2
+        p2 = (p0 - p1)/ 2 # just set third point to some random point, 
+
+        p2[1] += 20 # just change the third point to move it outside of the p0-p1 line!
+        
         x0, y0, z0 = p0
         x1, y1, z1 = p1
         x2, y2, z2 = p2
@@ -31,9 +35,21 @@ class MeshFeatures():
 
         u_cross_v = [uy*vz-uz*vy, uz*vx-ux*vz, ux*vy-uy*vx]
 
+        print(f"p0 {p0}")
+        print(f"p1 {p1}")
+        print(f"p2 {p2}")
+        print(f"u_cross_v {u_cross_v}")
+
         point  = np.array(p0)
         normal = np.array(u_cross_v)
-        normal[2] = 0
+        normal[2] = 0 # set zero on Z axis so as to make cutting plane perpendicular to hand
+
+
+        return np.array(p0), normal
+
+    def get_max_circumference_path(self):
+
+        point, normal = self.get_plane_from_crossing_side_common_points()
 
         lines = trimesh.intersections.mesh_plane(self.mesh,plane_normal=normal,plane_origin=point)
         p = trimesh.load_path(lines)
@@ -59,20 +75,28 @@ class MeshFeatures():
 
 
     def show_wrist_circumference_path(self):
-        p = pv.Plotter()
+        pl = pv.Plotter()
         path = self.get_wrist_circumference_path()
-        p.add_mesh(path.vertices, color=True)
-        p.add_mesh(self.mesh, color=True)
-        p.show_bounds(grid='front', location='outer', 
-                                    all_edges=True)
-        p.title = self.image_2d_info['filename']
-        p.show()
+        pl.add_mesh(path.vertices, color=True)
+        pl.add_mesh(self.mesh, color=True)
+        # p.show_bounds(grid='front', location='outer', 
+        #                             all_edges=True)
+        pl.camera_position = 'xy'
+        pl.camera.roll += 10
+        pl.title = self.image_2d_info['filename']
+        pl.show()
 
     def show_circumference_path(self):
+        point, normal = self.get_cross_points_plane()
+
         p = pv.Plotter()
         path = self.get_max_circumference_path()
         p.add_mesh(path.vertices, color=True)
         p.add_mesh(self.mesh, color=True)
+        # p.add_mesh(point, color=True,render_points_as_spheres=True,
+        #               point_size=100.0)
+
+        # p.add_mesh(pv.Plane(center=point,direction=normal,i_size=300,j_size=300))
         p.show_bounds(grid='front', location='outer', 
                                     all_edges=True)
         p.title = self.image_2d_info['filename']
@@ -132,7 +156,8 @@ if __name__ == '__main__':
             mesh_path = os.path.join(MESHES_PATH, mesh_name+'-fixed.ply')
             mesh_name = int(mesh_name)
             print(f'mesh_data : {mesh_data}')
-            if len(mesh_data.keys()) > 0:
+
+            if len(mesh_data.keys()) > 0 :
                 features = MeshFeatures(mesh_path, mesh_data,scale = 4)
                 # features.show_keypoints()
                 # features.show_wrist_circumference_path()

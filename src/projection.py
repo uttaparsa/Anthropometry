@@ -21,11 +21,17 @@ def project(img_path, output_path):
     margin_y = margin_percentage / 100 * diffy
 
 
+    print(f"x : {x}")
+    print(f"y : {y}")
+    print(f"diffy : {diffy}")
+    print(f"diffx : {diffx}")
+
+
 
     px = 1/plt.rcParams['figure.dpi']  # pixel in inches
 
-    pixel_size_in_mm = 4
-    plt.subplots(figsize=((diffx+margin_x)*px*pixel_size_in_mm, (diffy+margin_y)*px*pixel_size_in_mm))
+    pixel_per_mm = 4
+    plt.subplots(figsize=((diffx+margin_x)*px*pixel_per_mm, (diffy+margin_y)*px*pixel_per_mm))
 
 
     plt.xlim([math.floor(np.amin(x)) - margin_x/2, math.ceil(np.amax(x))  + margin_x/2])
@@ -42,8 +48,8 @@ def project(img_path, output_path):
     # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     # Taking a matrix of size 5 as the kernel
     # kernel = np.ones((20,20), np.uint8)
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(int(pixel_size_in_mm*2.3),int(pixel_size_in_mm*2.3)))
-    plt.subplots(figsize=((diffx+margin_x)*px*pixel_size_in_mm, (diffy+margin_y)*px*pixel_size_in_mm))
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(int(pixel_per_mm*2.3),int(pixel_per_mm*2.3)))
+    plt.subplots(figsize=((diffx+margin_x)*px*pixel_per_mm, (diffy+margin_y)*px*pixel_per_mm))
 
     img_erosion = cv2.erode(img, kernel, iterations=1)
     img_dilation = cv2.dilate(img_erosion, kernel, iterations=1)
