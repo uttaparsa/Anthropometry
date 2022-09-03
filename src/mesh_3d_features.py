@@ -129,6 +129,9 @@ class MeshFeatures():
 
     def get_all_features_dict(self):
         features = {}
+
+        if not self.mesh.is_watertight:
+            raise Exception("OOOps your mesh is not water tight")
         
         features['filename'] = self.image_2d_info['filename']
         features['volume'] = self.get_sliced_volume()
@@ -152,8 +155,10 @@ if __name__ == '__main__':
     with open('output/results.json') as json_file:
         data = json.load(json_file)
 
+        error_count = 0
+
         for mesh_name, mesh_data in data.items():
-            mesh_path = os.path.join(MESHES_PATH, mesh_name+'-fixed.ply')
+            mesh_path = os.path.join(MESHES_PATH, mesh_name+'.R-fixed.ply')
             mesh_name = int(mesh_name)
             print(f'mesh_data : {mesh_data}')
 
@@ -162,12 +167,16 @@ if __name__ == '__main__':
                 # features.show_keypoints()
                 # features.show_wrist_circumference_path()
                 # features.show_circumference_path()
-                features_dict = features.get_all_features_dict()
-                print(f"features : {features_dict}")
-                output_df.iloc[mesh_name-1,output_df.columns.get_loc('volume')] = features_dict['volume']
-                output_df.iloc[mesh_name-1,output_df.columns.get_loc('max_circumference')] = features_dict['max_circumference']
-                output_df.iloc[mesh_name-1,output_df.columns.get_loc('wrist_circumference')] = features_dict['wrist_circumference']
-                output_df.iloc[mesh_name-1,output_df.columns.get_loc('max_diameter')] = features_dict['max_diameter']
-                output_df.iloc[mesh_name-1,output_df.columns.get_loc('wrist_ratio')] = features_dict['wrist_ratio']
+                try:
+                    features_dict = features.get_all_features_dict()
+                    print(f"features : {features_dict}")
+                    output_df.iloc[mesh_name-1,output_df.columns.get_loc('volume')] = features_dict['volume']
+                    output_df.iloc[mesh_name-1,output_df.columns.get_loc('max_circumference')] = features_dict['max_circumference']
+                    output_df.iloc[mesh_name-1,output_df.columns.get_loc('wrist_circumference')] = features_dict['wrist_circumference']
+                    output_df.iloc[mesh_name-1,output_df.columns.get_loc('max_diameter')] = features_dict['max_diameter']
+                    output_df.iloc[mesh_name-1,output_df.columns.get_loc('wrist_ratio')] = features_dict['wrist_ratio']
+                except Exception:
+                    error_count = error_count+1
+                    print(f"Could not create data for mesh {mesh_name}, error_count{error_count }")
 
     output_df.to_csv(OUTPUT_DF_PATH)
