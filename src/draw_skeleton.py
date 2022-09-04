@@ -1,7 +1,6 @@
 """
 A code to run on the pourreza's images
 """
-import trimesh
 import cv2
 from os import walk
 from skeletone import Skeletone

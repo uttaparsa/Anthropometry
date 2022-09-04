@@ -35,10 +35,10 @@ class MeshFeatures():
 
         u_cross_v = [uy*vz-uz*vy, uz*vx-ux*vz, ux*vy-uy*vx]
 
-        print(f"p0 {p0}")
-        print(f"p1 {p1}")
-        print(f"p2 {p2}")
-        print(f"u_cross_v {u_cross_v}")
+        # print(f"p0 {p0}")
+        # print(f"p1 {p1}")
+        # print(f"p2 {p2}")
+        # print(f"u_cross_v {u_cross_v}")
 
         point  = np.array(p0)
         normal = np.array(u_cross_v)
@@ -157,9 +157,9 @@ if __name__ == '__main__':
 
         error_count = 0
 
-        for mesh_name, mesh_data in data.items():
-            mesh_path = os.path.join(MESHES_PATH, mesh_name+'.R-fixed.ply')
-            mesh_name = int(mesh_name)
+        for idx, (mesh_ID, mesh_data) in enumerate(data.items()):
+            mesh_path = os.path.join(MESHES_PATH, mesh_ID+'.R-fixed.ply')
+            mesh_ID = int(mesh_ID)
             print(f'mesh_data : {mesh_data}')
 
             if len(mesh_data.keys()) > 0 :
@@ -170,13 +170,17 @@ if __name__ == '__main__':
                 try:
                     features_dict = features.get_all_features_dict()
                     print(f"features : {features_dict}")
-                    output_df.iloc[mesh_name-1,output_df.columns.get_loc('volume')] = features_dict['volume']
-                    output_df.iloc[mesh_name-1,output_df.columns.get_loc('max_circumference')] = features_dict['max_circumference']
-                    output_df.iloc[mesh_name-1,output_df.columns.get_loc('wrist_circumference')] = features_dict['wrist_circumference']
-                    output_df.iloc[mesh_name-1,output_df.columns.get_loc('max_diameter')] = features_dict['max_diameter']
-                    output_df.iloc[mesh_name-1,output_df.columns.get_loc('wrist_ratio')] = features_dict['wrist_ratio']
+
+                    if idx > 5:
+                        break
+                    
+                    output_df.iloc[mesh_ID-1,output_df.columns.get_loc('volume')] = features_dict['volume']
+                    output_df.iloc[mesh_ID-1,output_df.columns.get_loc('max_circumference')] = features_dict['max_circumference']
+                    output_df.iloc[mesh_ID-1,output_df.columns.get_loc('wrist_circumference')] = features_dict['wrist_circumference']
+                    output_df.iloc[mesh_ID-1,output_df.columns.get_loc('max_diameter')] = features_dict['max_diameter']
+                    output_df.iloc[mesh_ID-1,output_df.columns.get_loc('wrist_ratio')] = features_dict['wrist_ratio']
                 except Exception:
                     error_count = error_count+1
-                    print(f"Could not create data for mesh {mesh_name}, error_count{error_count }")
+                    print(f"Could not create data for mesh {mesh_ID}, error_count{error_count }")
 
     output_df.to_csv(OUTPUT_DF_PATH)
