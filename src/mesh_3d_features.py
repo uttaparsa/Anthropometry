@@ -1,3 +1,4 @@
+import traceback
 import trimesh
 import numpy as np
 import pandas as pd
@@ -107,9 +108,13 @@ class MeshFeatures():
         try:
             p = self.get_max_circumference_path()
             p2 = trimesh.path.Path3D(entities=[p.entities[0]],vertices=p.vertices)
+            if len(p.entities)  == 1:
+                return p2.length
             p3 = trimesh.path.Path3D(entities=[p.entities[1]],vertices=p.vertices)
             return max(p2.length, p3.length)
-        except IndexError:
+        except IndexError as e:
+            print(f"Index error for {self.image_2d_info['filename']}")
+            traceback.print_exc()
             return 0
 
     def get_wrist_width(self):
@@ -147,7 +152,7 @@ if __name__ == '__main__':
     import json
     import os
     import pandas as pd
-    MESHES_PATH = "./Data/fixed"
+    MESHES_PATH = "./Data/new/fixed"
     OUTPUT_DF_PATH = "./output/results.csv"
 
     output_df = pd.read_csv("./output/results.csv")
@@ -160,7 +165,7 @@ if __name__ == '__main__':
         for idx, (mesh_ID, mesh_data) in enumerate(data.items()):
             mesh_path = os.path.join(MESHES_PATH, mesh_ID+'.R-fixed.ply')
             mesh_ID = int(mesh_ID)
-            print(f'mesh_data : {mesh_data}')
+            # print(f'mesh_data : {mesh_data}')
 
             if len(mesh_data.keys()) > 0 :
                 features = MeshFeatures(mesh_path, mesh_data,scale = 4)
@@ -171,8 +176,8 @@ if __name__ == '__main__':
                     features_dict = features.get_all_features_dict()
                     print(f"features : {features_dict}")
 
-                    if idx > 5:
-                        break
+                    # if idx > 5:
+                    #     break
                     
                     output_df.iloc[mesh_ID-1,output_df.columns.get_loc('volume')] = features_dict['volume']
                     output_df.iloc[mesh_ID-1,output_df.columns.get_loc('max_circumference')] = features_dict['max_circumference']

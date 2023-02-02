@@ -65,6 +65,8 @@ df = pd.DataFrame(columns = [
                         "palm_length",
                         "finger_length",
                         "hand_width",
+                        "little_length"
+                        "ring_length"
                         "index1",
                         "index2",
                         "max_breadth",
@@ -74,7 +76,9 @@ df = pd.DataFrame(columns = [
                         "wrist_ratio",
                         "hLength_bHeight",
                         "hVolume_BMI"
-                        "hand_span"
+                        "hand_span",
+                        "bug",
+                        "check"
                     ])
 
 img_dir = input_dir
@@ -109,7 +113,8 @@ if args['ply']:
 # walk through the hand image files and find their points
 filenames = next(os.walk(img_dir), (None, None, []))[2]  # [] if no file
 points_dict = dict()
-
+point20_bug_count = 0
+empty_points_bug_count = 0
 for file in filenames:
     print("file: ", file)
     pDic = dict()
@@ -124,12 +129,16 @@ for file in filenames:
 
     sk = Skeletone(image=sil_img, name=file.split(".")[0])
     bug = False
+    check = False
 
     points = sk.keypoints()
 
     b_dic = b_list = None
 
+    
+
     if points != None:
+        print(f"points[20] : {points[20]}")
         if  points[0]  != None and \
             points[2]  != None and \
             points[4]  != None and \
@@ -140,10 +149,22 @@ for file in filenames:
 
             b_dic, b_list = sk.border_points(points=points)
 
+            
         elif points[20]:
+            check = True
+            print(f"points : {points}")
+            print(f"points len : {len(points)}")
             bug = True
+            point20_bug_count += 1
+            # print("bug because of point20")
     else:
         bug = True
+        # print("bug because of all")
+        empty_points_bug_count += 1
+
+    print(f"empty_points_bug_count {empty_points_bug_count}")
+    print(f"point20_bug_count {point20_bug_count}")
+
 
     # add border points of the image to the point_dict. This dictionary will be converted to JSON file later.
     if b_list == None:
@@ -151,6 +172,7 @@ for file in filenames:
     else:
         points_dict[file.split('.')[0].split('-')[0]] = {**b_dic, **(sk.get_top_bottom()) , **{'shape': img.shape,'filename':file}}
     
+    print(f"b_dic : {b_dic}")
 
     if not bug:
         b_img = sk.draw_border_points()
@@ -162,6 +184,8 @@ for file in filenames:
             pDic["hand_length"]   = euclidean_distance(b_list[0], b_list[1], args["scale"])
             pDic["palm_length"]   = euclidean_distance(b_list[1], b_list[6], args["scale"])
             pDic["finger_length"] = euclidean_distance(b_list[0], b_list[6], args["scale"])
+            pDic["index_length"] = euclidean_distance(b_dic["index_finger"], b_dic["end_index"], args["scale"]) if ("index_finger" in b_dic) and ("end_index" in b_dic) else None
+            pDic["ring_length"] = euclidean_distance(b_dic["ring"], b_dic["end_ring"], args["scale"]) if ("ring" in b_dic) and ("end_ring" in b_dic) else None
             pDic["hand_width"]    = euclidean_distance(b_list[4], b_list[5], args["scale"])
             pDic["index1"] = pDic["hand_width"] * (100 / pDic["hand_length"])
             pDic["max_breadth"] = euclidean_distance(b_list[7], b_list[8], args["scale"])
@@ -175,6 +199,8 @@ for file in filenames:
     pDic["wrist_ratio"] = None
     pDic["hLength_bHeight"] = None
     pDic["hVolume_BMI"] = None
+    pDic["bug"] = bug
+    pDic["check"] = check
 
     if bug or b_list == None:
         pDic["hand_length"]   = None

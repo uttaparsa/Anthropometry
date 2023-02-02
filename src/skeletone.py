@@ -245,6 +245,29 @@ class Skeletone:
         side6 = [currentX2, wrist[1]]
         border_point_dict["side6"] = side6
         self.border_points_list.append(side6)
+
+# -------------------------------------------------------------
+        # other fingers (11-12 and 13-14)
+
+        border_point_dict["index_finger"] = points[8]
+        self.border_points_list.append(points[8])
+
+        
+        if points[8]:
+            y = middleY_finder(point9[0], point5[0])
+            end_index = [points[8][0], y]
+            border_point_dict['end_index'] = end_index
+            self.border_points_list.append(end_index)
+
+
+        if points[16]:
+            border_point_dict["ring"] = points[16]
+            self.border_points_list.append(points[16])
+            y = middleY_finder(point13[0], point17[0])
+            
+            end_ring = [points[16][0], y]
+            border_point_dict['end_ring'] = end_ring
+            self.border_points_list.append(end_ring)
 # ----------------------------------------------------------
         return border_point_dict, self.border_points_list
 
