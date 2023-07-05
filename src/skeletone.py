@@ -217,7 +217,7 @@ class Skeletone:
             currentX1 -= 1
         
         side3 = [currentX1, point2[1]]
-        border_point_dict["side4"] = side3
+        border_point_dict["side3"] = side3
         self.border_points_list.append(side3)
 
         currentX2 = point2[0]

@@ -12,17 +12,19 @@ class MeshFeatures():
         self.image_2d_info = image_2d_info
         self.mesh = trimesh.load(mesh_path, force='mesh')
         self.keypoints, self.translation_offset, self.scale = find_transformation.get_transformed_keypoints_from_2d_on_mesh(self.mesh, image_2d_info,scale=scale)
-
+        self.wrist_sliced = self.get_wrist_sliced_mesh()
+        print(f"wrist bounds {self.wrist_sliced.bounds}")
 
     def get_wrist_circumference_path(self):
-        lines = trimesh.intersections.mesh_plane(self.mesh,plane_normal=[0,-1,0],plane_origin=[self.keypoints['wrist'][0],self.keypoints['wrist'][1],0])
+        point, normal = self.get_plane_from_crossing_points(self.keypoints['side5'],self.keypoints['side6'])
+        lines = trimesh.intersections.mesh_plane(self.mesh,plane_normal=normal,plane_origin=point)
         p = trimesh.load_path(lines)
         return p
 
 
-    def get_plane_from_crossing_side_common_points(self):
-        p0 = self.keypoints['side1'] + [0]
-        p1 = self.keypoints['side2'] + [2]
+    def get_plane_from_crossing_points(self,point1,point2):
+        p0 = point1 + [0]
+        p1 = point2 + [2]
         p2 = (p0 - p1)/ 2 # just set third point to some random point, 
 
         p2[1] += 20 # just change the third point to move it outside of the p0-p1 line!
@@ -50,7 +52,7 @@ class MeshFeatures():
 
     def get_max_circumference_path(self):
 
-        point, normal = self.get_plane_from_crossing_side_common_points()
+        point, normal = self.get_plane_from_crossing_points(self.keypoints['side1'],self.keypoints['side2'])
 
         lines = trimesh.intersections.mesh_plane(self.mesh,plane_normal=normal,plane_origin=point)
         p = trimesh.load_path(lines)
@@ -60,7 +62,7 @@ class MeshFeatures():
         p = pv.Plotter()
 
         p.add_mesh(self.mesh, color=True)
-
+        print(f"keypoints {self.keypoints}")
         for keypoint_name, keypoint in self.keypoints.items():
 
             temp_point = keypoint.copy()
@@ -79,7 +81,7 @@ class MeshFeatures():
         pl = pv.Plotter()
         path = self.get_wrist_circumference_path()
         pl.add_mesh(path.vertices, color=True)
-        pl.add_mesh(self.mesh, color=True)
+        pl.add_mesh( self.wrist_sliced, color=True)
         # p.show_bounds(grid='front', location='outer', 
         #                             all_edges=True)
         pl.camera_position = 'xy'
@@ -88,7 +90,7 @@ class MeshFeatures():
         pl.show()
 
     def show_circumference_path(self):
-        point, normal = self.get_cross_points_plane()
+        # point, normal = self.get_cross_points_plane()
 
         p = pv.Plotter()
         path = self.get_max_circumference_path()
@@ -121,15 +123,22 @@ class MeshFeatures():
         return np.linalg.norm(
             np.array(self.keypoints['side5'])-np.array(self.keypoints['side6'])
             )
+    
+    def get_wrist_sliced_mesh(self):
+        point, normal = self.get_plane_from_crossing_points(self.keypoints['side5'],self.keypoints['side6'])
+        normal = [ -x for x in normal]
+        return trimesh.intersections.slice_mesh_plane(self.mesh,normal,plane_origin=point,cap=True)
 
     def get_wrist_depth(self):
-        return self.mesh.bounds[1][2] - self.mesh.bounds[0][2]
+        sliced = self.wrist_sliced
+        
+        return sliced.bounds[1][2] - sliced.bounds[0][2]
 
     def get_wrist_ratio(self):
         return self.get_wrist_depth() / self.get_wrist_width()
 
     def get_sliced_volume(self):
-        sliced = trimesh.intersections.slice_mesh_plane(self.mesh,plane_normal=[0,-1,0],plane_origin=[self.keypoints['wrist'][0],self.keypoints['wrist'][1], 0],cap=True)
+        sliced = self.wrist_sliced
         return sliced.volume
 
     def get_all_features_dict(self):
@@ -147,17 +156,19 @@ class MeshFeatures():
         features['wrist_ratio'] = self.get_wrist_ratio()
         
         return features
+    
+MESHES_PATH = "./Data/new/fixed"
 
 if __name__ == '__main__':
     import json
     import os
     import pandas as pd
-    MESHES_PATH = "./Data/new/fixed"
-    OUTPUT_DF_PATH = "./output/results.csv"
+    
+    OUTPUT_DF_PATH = "./output/new/results.csv"
 
-    output_df = pd.read_csv("./output/results.csv")
+    output_df = pd.read_csv(OUTPUT_DF_PATH)
     output_df = output_df.sort_values(by=['index'])
-    with open('output/results.json') as json_file:
+    with open('output/new/results.json') as json_file:
         data = json.load(json_file)
 
         error_count = 0
@@ -165,7 +176,7 @@ if __name__ == '__main__':
         for idx, (mesh_ID, mesh_data) in enumerate(data.items()):
             mesh_path = os.path.join(MESHES_PATH, mesh_ID+'.R-fixed.ply')
             mesh_ID = int(mesh_ID)
-            # print(f'mesh_data : {mesh_data}')
+            print(f'mesh_data : {mesh_data}')
 
             if len(mesh_data.keys()) > 0 :
                 features = MeshFeatures(mesh_path, mesh_data,scale = 4)
@@ -176,16 +187,28 @@ if __name__ == '__main__':
                     features_dict = features.get_all_features_dict()
                     print(f"features : {features_dict}")
 
-                    # if idx > 5:
-                    #     break
+                    if idx > 5:
+                        break
+
+                    # df.loc[df['column_name'] == some_value]
+                    # print(f"we are mofifying {output_df.iloc[mesh_ID-1]}")
                     
-                    output_df.iloc[mesh_ID-1,output_df.columns.get_loc('volume')] = features_dict['volume']
-                    output_df.iloc[mesh_ID-1,output_df.columns.get_loc('max_circumference')] = features_dict['max_circumference']
-                    output_df.iloc[mesh_ID-1,output_df.columns.get_loc('wrist_circumference')] = features_dict['wrist_circumference']
-                    output_df.iloc[mesh_ID-1,output_df.columns.get_loc('max_diameter')] = features_dict['max_diameter']
-                    output_df.iloc[mesh_ID-1,output_df.columns.get_loc('wrist_ratio')] = features_dict['wrist_ratio']
+                    pd_idx = output_df.loc[output_df['index'] == (str(mesh_ID)+".R")].index[0]
+                    print(f"pd_idx is {pd_idx}, mesh_ID is {mesh_ID}")
+                    output_df.at[pd_idx, 'volume']  = features_dict['volume']
+                    output_df.at[pd_idx, 'max_circumference'] = features_dict['max_circumference']
+                    output_df.at[pd_idx, 'wrist_circumference'] = features_dict['wrist_circumference']
+                    output_df.at[pd_idx, 'max_diameter'] = features_dict['max_diameter']
+                    output_df.at[pd_idx, 'wrist_ratio'] = features_dict['wrist_ratio']
+
+                    # output_df.iloc[mesh_ID-1,output_df.columns.get_loc('volume')] = features_dict['volume']
+                    # output_df.iloc[mesh_ID-1,output_df.columns.get_loc('max_circumference')] = features_dict['max_circumference']
+                    # output_df.iloc[mesh_ID-1,output_df.columns.get_loc('wrist_circumference')] = features_dict['wrist_circumference']
+                    # output_df.iloc[mesh_ID-1,output_df.columns.get_loc('max_diameter')] = features_dict['max_diameter']
+                    # output_df.iloc[mesh_ID-1,output_df.columns.get_loc('wrist_ratio')] = features_dict['wrist_ratio']
                 except Exception:
-                    error_count = error_count+1
-                    print(f"Could not create data for mesh {mesh_ID}, error_count{error_count }")
+                    error_count = error_count + 1
+                    print(f"Could not create data for mesh {mesh_ID}, error_count is {error_count }")
+                    print(traceback.format_exc())
 
     output_df.to_csv(OUTPUT_DF_PATH)

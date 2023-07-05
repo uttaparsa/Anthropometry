@@ -6,6 +6,7 @@ import pyvista as pv
 
 
 def get_transformed_keypoints_from_2d_on_mesh(mesh, image_info, scale=None):
+    print(f"image_info {image_info}")
     a_index = np.argmax(mesh.vertices, axis=0)[0] # thumb
     b_index = np.argmin(mesh.vertices, axis=0)[1] # top
     
@@ -15,7 +16,7 @@ def get_transformed_keypoints_from_2d_on_mesh(mesh, image_info, scale=None):
     image_B_pixel = np.array(image_info["bottom"])[::-1]
     image_B_pixel[1] = max(image_info["shape"]) - image_B_pixel[1]
 
-    keypoint_names = ["wrist","thumb","little","side1","side2","side4","side5","side6","end_middle"]
+    keypoint_names = ["wrist","thumb","little","side1","side2","side4","side5","side6","end_middle","index_finger","end_index","ring","end_ring"]
     keypoints = {}
 
 
